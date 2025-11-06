@@ -65,7 +65,7 @@ pub fn points_cross_mesh(
     mesh.cast_local_ray_and_get_normal(
         &ray, 1.0, false, // unused
     )
-    .map(|i| (ray.point_at(i.toi), mesh.is_backface(i.feature)))
+    .map(|i| (ray.point_at(i.time_of_impact), mesh.is_backface(i.feature)))
 }
 
 pub fn dist_from_mesh(mesh: &TriMesh, point: &Point<f64>, rays: Option<&[Vector<f64>]>) -> f64 {

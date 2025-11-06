@@ -5,11 +5,10 @@ use numpy::ndarray::{Array, Zip};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray2};
 use parry3d_f64::math::{Point, Vector};
 use parry3d_f64::shape::TriMesh;
-use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use rand::SeedableRng;
 use rand_pcg::Pcg64Mcg;
-use rayon::{prelude::*, ThreadPoolBuilder};
+use rayon::{prelude::*};
 
 use crate::utils::{dist_from_mesh, mesh_contains_point, points_cross_mesh, random_dir, Precision};
 
@@ -56,7 +55,7 @@ impl TriMeshWrapper {
             .into_iter()
             .map(|v| [v[0], v[1], v[2]])
             .collect();
-        let mesh = TriMesh::new(points2, indices2);
+        let mesh = TriMesh::new(points2, indices2).expect("Failed to create TriMesh");
 
         if n_rays > 0 {
             let bsphere = mesh.local_bounding_sphere();
@@ -84,7 +83,7 @@ impl TriMeshWrapper {
         points: PyReadonlyArray2<Precision>,
         signed: bool,
         parallel: bool,
-    ) -> &'py PyArray1<Precision> {
+    ) -> Bound<'py, PyArray1<Precision>> {
         let rays = if signed {
             Some(&self.ray_directions[..])
         } else {
@@ -108,7 +107,7 @@ impl TriMeshWrapper {
         py: Python<'py>,
         points: PyReadonlyArray2<Precision>,
         parallel: bool,
-    ) -> &'py PyArray1<bool> {
+    ) -> Bound<'py , PyArray1<bool>> {
         if parallel {
             Zip::from(points.as_array().rows())
                 .par_map_collect(|r| {
@@ -132,12 +131,12 @@ impl TriMeshWrapper {
         }
     }
 
-    pub fn points<'py>(&self, py: Python<'py>) -> &'py PyArray2<Precision> {
+    pub fn points<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<Precision>> {
         let vv: Vec<Vec<Precision>> = self.mesh.vertices().iter().map(point_to_vec).collect();
         PyArray2::from_vec2(py, &vv).unwrap()
     }
 
-    pub fn faces<'py>(&self, py: Python<'py>) -> &'py PyArray2<u32> {
+    pub fn faces<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<u32>> {
         let vv: Vec<Vec<u32>> = self
             .mesh
             .indices()
@@ -147,12 +146,12 @@ impl TriMeshWrapper {
         PyArray2::from_vec2(py, &vv).unwrap()
     }
 
-    pub fn rays<'py>(&self, py: Python<'py>) -> &'py PyArray2<Precision> {
+    pub fn rays<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<Precision>> {
         let vv: Vec<Vec<Precision>> = self.ray_directions.iter().map(vector_to_vec).collect();
         PyArray2::from_vec2(py, &vv).unwrap()
     }
 
-    pub fn aabb<'py>(&self, py: Python<'py>) -> &'py PyArray2<Precision> {
+    pub fn aabb<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<Precision>> {
         let aabb = self.mesh.local_aabb();
         PyArray2::from_vec2(py, &[point_to_vec(&aabb.mins), point_to_vec(&aabb.maxs)]).unwrap()
     }
@@ -163,9 +162,9 @@ impl TriMeshWrapper {
         src_points: PyReadonlyArray2<Precision>,
         tgt_points: PyReadonlyArray2<Precision>,
     ) -> (
-        &'py PyArray1<u64>,
-        &'py PyArray2<Precision>,
-        &'py PyArray1<bool>,
+        Bound<'py, PyArray1<u64>>,
+        Bound<'py, PyArray2<Precision>>,
+        Bound<'py, PyArray1<bool>>,
     ) {
         let mut idxs = Vec::default();
         let mut intersections = Vec::default();
@@ -222,35 +221,35 @@ impl TriMeshWrapper {
 
 #[pymodule]
 #[pyo3(name = "_ncollpyde")]
-pub fn ncollpyde(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<TriMeshWrapper>()?;
+pub mod ncollpyde {
+    use pyo3::prelude::*;
+    use pyo3::exceptions::PyRuntimeError;
+    use rayon::ThreadPoolBuilder;
 
-    #[pyfn(m)]
-    #[pyo3(name = "_precision")]
+   #[pymodule_export]
+   use super::TriMeshWrapper;
+
+    #[pyfunction(name = "_precision")]
     pub fn precision_py(_py: Python) -> &'static str {
         "float64"
     }
 
-    #[pyfn(m)]
-    #[pyo3(name = "_index")]
+    #[pyfunction(name = "_index")]
     pub fn index_py(_py: Python) -> &'static str {
         "uint32"
     }
 
-    #[pyfn(m)]
-    #[pyo3(name = "_version")]
+    #[pyfunction(name = "_version")]
     pub fn version_py(_py: Python) -> &'static str {
         env!("CARGO_PKG_VERSION")
     }
 
-    #[pyfn(m)]
-    #[pyo3(name = "n_threads")]
+    #[pyfunction(name = "n_threads")]
     pub fn n_threads(_py: Python) -> usize {
         rayon::current_num_threads()
     }
 
-    #[pyfn(m)]
-    #[pyo3(name = "_configure_threadpool")]
+    #[pyfunction(name = "_configure_threadpool")]
     pub fn configure_threadpool(
         _py: Python,
         n_threads: Option<usize>,
@@ -267,6 +266,6 @@ pub fn ncollpyde(_py: Python, m: &PyModule) -> PyResult<()> {
             .build_global()
             .map_err(|e| PyRuntimeError::new_err(format!("Error building threadpool: {e}")))
     }
-
-    Ok(())
 }
+
+
