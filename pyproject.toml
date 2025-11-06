@@ -3,7 +3,7 @@ name = "ncollpyde"
 # version = "0.19.0"
 description = "Point/line-mesh intersection queries in python"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {file = "LICENSE"}
 authors = [
   {name = "Chris L. Barnes", email = "chrislloydbarnes@gmail.com"},
@@ -15,7 +15,6 @@ classifiers = [
   "Natural Language :: English",
   "Programming Language :: Rust",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -50,4 +49,4 @@ python_version = "3.12"
 
 [tool.ruff]
 extend-exclude = ["docs"]
-target-version = "py39"
+target-version = "py310"
